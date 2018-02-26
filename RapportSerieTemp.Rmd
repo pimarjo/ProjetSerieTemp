@@ -24,8 +24,8 @@ library(corrplot)
 
 #Introduction
 
-L'objet de ce projet est l'étude de 3 séries temporelles et la construction pour chaque série d'un modèle de prédiction. Tous les outils développés dans ce projet découlent du cours de Séries Temporelles. 
-Nous commencerons par présenter les données, puis nous réserverons une partie dédiée par série temporelle à analyser. Enfin dans une derniere partie, nous résumerons les résultats des prédictions et les observations qu'elles appellent.
+L'objet de ce projet est l'étude de 3 séries temporelles et la construction pour chaque série d'un modéle de prédiction. Tous les outils développés dans ce projet découlent du cours de Séries Temporelles. 
+Nous commencerons par présenter les données, puis nous réserverons une partie dédiée par série temporelle a analyser. Enfin dans une derniere partie, nous résumerons les résultats des prédictions et les observations qu'elles appellent.
 
 
 ```{r Importation donnees}
@@ -37,7 +37,7 @@ names(data) <- c("Periode",
                  "Production.Totale.Nette",
                  "Production.Primaire.Brute",
                  "Production.Primaire.Nette",
-                 "Production.Nucléaire.Brute",
+                 "Production.Nucleaire.Brute",
                  "Production.Nucleaire.Nette",
                  "Production.Hydraulique.Brute",
                  "Production.Hydraulique.Nette",
@@ -47,14 +47,14 @@ names(data) <- c("Periode",
                  "Production.Photovoltaique.Nette",
                  "Production.Thermique.Brute",
                  "Production.Thermique.Nette",
-                 "Électricité absorbée pour les pompages (en GWh)",
+                 "Electricite absorbee pour les pompages (en GWh)",
                  "Importations",
                  "Exportations",
                  "Energie appelee reelle yc pertes",
                  "Livraisons.BasseTension",
                  "Livraisons.MoyenneTension",
                  "Livraisons.HauteTension",
-                 "Energie appelée réelle yc pertes corrigée du climat",
+                 "Energie appelee reelle yc pertes corrigee du climat",
                  "Livraisons.BasseTension.CorClimat",
                  "Livraisons.MoyenneTension.CorClimat",
                  "Consommation.Primaire",
@@ -84,23 +84,23 @@ plot(decompose(ts.import, type = "additive"))
 
 ```
 
-#Partie 1: la production totale brute d'électricité
+#Partie 1: la production totale brute d'electricite
 
 
-##Représentation.
+##Representation.
 
 ```{r affichage ts.production}
 
-plot(ts.production.Totale.Brute, ylab = "Production totale d'électricité brute", type = "l")
+plot(ts.production.Totale.Brute, ylab = "Production totale d'electricite brute", type = "l")
 
 ```
 
-Cette représentation appelle déjà plusieurs observations:
-- Présence d'une saisonnalité d'amplitude constante: on se place alors de la cadre des modèles additifs
+Cette représentation appelle déja plusieurs observations:
+- Présence d'une saisonnalité d'amplitude constante: on se place alors de la cadre des modéles additifs
 - Le trend ne semble pas linéaire
 
-Avant de se lancer brutalement dans l'estimation d'un modèle pour cette série temporelle, on peut essayer de s'intéresser aux valeurs qui composent cette production globale brute.
-Dans cet esprit, on remarque que cette série est la somme des productions brutes. Cependant, les séries n'étant pas indépendantes, il serait laborieux de développer plus sur cette voie là. Nous décidons donc de malgré tout nous lancer directement dans l'étude de la série brutalement.
+Avant de se lancer brutalement dans l'estimation d'un modéle pour cette série temporelle, on peut essayer de s'intéresser aux valeurs qui composent cette production globale brute.
+Dans cet esprit, on remarque que cette série est la somme des productions brutes. Cependant, les séries n'étant pas indépendantes, il serait laborieux de développer plus sur cette voie la. Nous décidons donc de malgré tout nous lancer directement dans l'étude de la série brutalement.
 
 
 ##Stationnarité
