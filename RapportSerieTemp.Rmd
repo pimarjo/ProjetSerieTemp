@@ -24,7 +24,7 @@ library(corrplot)
 
 #Introduction
 
-L'objet de ce projet est l'étude de 3 séries temporelles et la construction pour chaque série d'un modèle de prédiction. Tous les outils développés dans ce projet découlent du cours de Séries Temporelles. 
+L'objet de ce projet est l'étudee de 3 séries temporelles et la construction pour chaque série d'un modèle de prédiction. Tous les outils développés dans ce projet découlent du cours de Séries Temporelles. 
 Nous commencerons par présenter les données, puis nous réserverons une partie dédiée par série temporelle à analyser. Enfin dans une derniere partie, nous résumerons les résultats des prédictions et les observations qu'elles appellent.
 
 
