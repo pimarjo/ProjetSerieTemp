@@ -30,7 +30,7 @@ Nous commencerons par présenter les données, puis nous réserverons une partie dé
 
 ```{r Importation donnees}
 
-data <- read.csv("C:/Users/pierr/Documents/ISFA/3A/Séries temporelles/Projet/Donnees.csv", sep = ";")
+data <- read.csv("C:/Users/MBozon/Documents/ISFA/Series temporelles/Memoire/Donnees.csv", sep = ";")
 
 names(data) <- c("Periode",
                  "Production.Totale.Brute",
