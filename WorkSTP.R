@@ -4,6 +4,28 @@ library(magrittr)
 library(dplyr)
 library(corrplot)
 library(forecast)
+library(gridExtra)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+library(forecast)
+
+#fonctions utiles
+ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
+  split.screen(c(2,1))
+  screen(1)
+  plot(ts,main=title)
+  
+  split.screen(c(1,2),screen=2)
+  screen(3)
+  acf(ts,lag.max = lag.max,main="ACF",na.action = na.pass)
+  
+  screen(4)
+  pacf(ts,lag.max = lag.max,main="pACF",na.action = na.pass)
+  close.screen(all = TRUE)
+}
+
 
 data <- read.csv("Donnees.csv", sep = ";", header = T)
 
@@ -94,6 +116,7 @@ pacf(decompose.prod.totale$random, na.action = na.pass)
 
 #On différencie la saisonnalité
 
+
 ts$prod.totale %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d=0, D=1")
 #L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité
 
@@ -117,7 +140,14 @@ fit
 
 #Il nous faut tester la blancheur des résidus
 #Test Ljung-Box
+x <- rep(0, 2, 48)
+for (i in 2:48){
+  x[i]<- Box.test(residuals(auto.arima(ts$prod.totale)), lag=i, fitdf=2, type="Ljung")$p.value
+}
+plot(x)
 
+qqnorm((residuals(fit)-mean(residuals(fit)))/sd(residuals(fit)))
+abline(0,1)
 
 #on plot les prévisions sur 3 années
 plot(forecast(fit, h=36))
@@ -127,31 +157,19 @@ plot(forecast(fit, h=36))
 
 
 
+HW.model <- HoltWinters(ts$prod.totale)
+
+HW.model
+HW.predict <- predict(object = HW.model, 36, level = 0.95, prediction.interval = TRUE)
 
 
+plot(HW.predict)
+plot(HW.model, HW.predict)
+
+predict.arima <- forecast(fit, h=36)
+
+plot(forecast(fit, h=36), HW.predict)
+plot.new()
+lines(HW.predict, col = "red")
 
 
-
-
-#fonctions utiles
-ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
-  split.screen(c(2,1))
-  split.screen(c(1,2),screen=2)
-  screen(1)
-  plot(ts,main=title)
-  screen(3)
-  acf(ts,lag.max = lag.max,main="ACF")
-  screen(4)
-  pacf(ts,lag.max = lag.max,main="pACF")
-  close.screen(all = TRUE)
-}
-
-
-x <- rep(0, 2, 48)
-for (i in 2:48){
-  x[i]<- Box.test(residuals(auto.arima(ts$prod.totale)), lag=i, fitdf=2, type="Ljung")$p.value
-}
-plot(x)
-
-qqnorm((residuals(fit)-mean(residuals(fit)))/sd(residuals(fit)))
-abline(0,1)
