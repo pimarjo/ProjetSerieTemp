@@ -76,9 +76,9 @@ ts <- list(prod.totale = ts(data$Production.Totale.Brute, frequency = 12, start 
            photo = ts(data$Production.Photovoltaique.Brute[data$Production.Photovoltaique.Brute!=0], frequency = 12, start = c(2011,1), end = c(2017,11)))
 
 
-
-#Partie 1: la production totale brute d'electricite
-
+##############################################################################################
+#############______   Partie 1: la production totale brute d'electricite   ______#############
+##############################################################################################
 
 ##Representation.
 
@@ -114,6 +114,8 @@ acf(decompose.prod.totale$random, na.action = na.pass)
 pacf(decompose.prod.totale$random, na.action = na.pass)
 #Le bruit n'est pas stationnaire et présente une saisonnalité
 
+#############______  SARIMA  ______#############
+
 #On différencie la saisonnalité
 
 
@@ -123,7 +125,7 @@ ts$prod.totale %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d
 #On différencie alors encore
 ts$prod.totale %>% diff() %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d=1, D=1")
 
-##Maintenant on analyse l'ACF et le pACF
+#Maintenant on analyse l'ACF et le pACF
 #Sur l'ACF on va chercher les MA et sur le pACF les AR
 
 #Sur l'ACF: le premier pic après 0 est en faveur d'un MA(1), et le pique en 1 en faveur d'un SMA(1)
@@ -142,34 +144,36 @@ fit
 #Test Ljung-Box
 x <- rep(0, 2, 48)
 for (i in 2:48){
-  x[i]<- Box.test(residuals(auto.arima(ts$prod.totale)), lag=i, fitdf=2, type="Ljung")$p.value
+  x[i]<- Box.test(residuals(fit), lag=i, fitdf=2, type="Ljung")$p.value
 }
 plot(x)
 
+#qq plot test: il faut que ce soit aligner sur la première bissectrice du plan
 qqnorm((residuals(fit)-mean(residuals(fit)))/sd(residuals(fit)))
-abline(0,1)
+abline(0,1, col = "red")
 
-#on plot les prévisions sur 3 années
-plot(forecast(fit, h=36))
-
-#Partie 2: la production photovoltaique brute
-
-
+#On projette sur 36 mois
+predict.arima <- forecast(fit, h=36)
+#On plot
+plot(predict.arima)
 
 
+#############______  2e méthode: lissage Holt-Winters  ______#############
+
+#On fit un Holt-Winters basique sur la série
 HW.model <- HoltWinters(ts$prod.totale)
 
-HW.model
-HW.predict <- predict(object = HW.model, 36, level = 0.95, prediction.interval = TRUE)
+#On projette
+HW.predict <- predict(object = HW.model, 36, level = 0.95, prediction.interval = F) #Mettre prediction.interval = T si on veut l'intervalle de confiance
 
-
-plot(HW.predict)
+#On plot
 plot(HW.model, HW.predict)
 
-predict.arima <- forecast(fit, h=36)
 
-plot(forecast(fit, h=36), HW.predict)
-plot.new()
-lines(HW.predict, col = "red")
 
+#On plot les prédictions du SARIMA et du Holt-Winters qur le même graphe
+########>>>>>>>>>>>>> Je n'y arrive pas
+
+#On compare les 2 méthodes en comporant les SSE, c'est le SARIMA qui gagne à ce jeu là
+sum(fit$residuals^2) < HW.model$SSE
 
