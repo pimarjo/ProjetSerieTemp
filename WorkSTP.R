@@ -10,6 +10,7 @@ library(grid)
 library(ggplot2)
 library(lattice)
 library(forecast)
+library(tseries)
 
 #fonctions utiles
 ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
@@ -87,9 +88,11 @@ plot(ts$prod.totale, ylab = "Production totale d'electricite brute", type = "l")
 #Cette repr?sentation appelle d?ja plusieurs observations:
 #  - Pr?sence d'une saisonnalit? d'amplitude constante: on se place alors de la cadre des mod?les additifs
 #  - Le trend ne semble pas lin?aire
+# EDIT: log? racine?
 
 #Avant de se lancer brutalement dans l'estimation d'un mod?le pour cette s?rie temporelle, on peut essayer de s'int?resser aux valeurs qui composent cette production globale brute.
-#Dans cet esprit, on remarque que cette s?rie est la somme des productions brutes. Cependant, les s?ries n'?tant pas ind?pendantes, il serait laborieux de d?velopper plus sur cette voie la. Nous d?cidons donc de malgr? tout nous lancer directement dans l'?tude de la s?rie brutalement.
+#Dans cet esprit, on remarque que cette s?rie est la somme des productions brutes. Cependant, les s?ries n'?tant pas ind?pendantes, il serait laborieux de d?velopper plus sur cette voie la.
+#Nous d?cidons donc de malgr? tout nous lancer directement dans l'?tude de la s?rie brutalement.
 
 #cor <- cor(data.production.nette[-1])
 #corrplot(corr = cor)
@@ -117,7 +120,6 @@ pacf(decompose.prod.totale$random, na.action = na.pass)
 #############______  SARIMA  ______#############
 
 #On diff√©rencie la saisonnalit√©
-
 
 ts$prod.totale %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d=0, D=1")
 #L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarit√©
@@ -177,3 +179,25 @@ plot(HW.model, HW.predict)
 #On compare les 2 m√©thodes en comporant les SSE, c'est le SARIMA qui gagne √† ce jeu l√†
 sum(fit$residuals^2) < HW.model$SSE
 
+
+##############################################################################################
+#############______   Partie 2: IMPORT   ______#############
+##############################################################################################
+
+#------- plot de la sÈrie --------
+plot(ts$import)       #il semble que la sÈrie soit de type multiplicative car l'amplitude de la saisonalitÈ n'est pas constante
+plot(log(ts$import))  #On passe au log pour la rendre additive : OK
+
+logimport <- log(ts$import)
+#------- ACF , PACF ----------
+acf(logimport)        #pas stationnaire en l'Ètat
+pacf(logimport)
+
+#------- Decompose ---------
+
+logimport.decompose <- decompose(logimport,type = "additive")
+acf(logimport.decompose$random, na.action = na.pass)  # A dÈfaut que la composante alÈatoire ne soit pas un bruit blanc, elle n'est mÍme pas stationnaire
+pacf(logimport.decompose$random, na.action = na.pass)
+
+plot(logimport.decompose)
+#On diff√©rencie la saisonnalit√©
