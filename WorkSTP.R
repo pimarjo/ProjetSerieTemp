@@ -109,23 +109,31 @@ pacf(ts$prod.totale)
 
 ##Decompose()
 
-decompose.prod.totale <- decompose(ts$prod.totale, type = "additive")
-plot(decompose(ts$prod.totale, type = "additive"))
+decompose.prod.totale <- decompose(ts$prod.totale, type = "additive") %>% plot(.)
 
 
 acf(decompose.prod.totale$random, na.action = na.pass)
 pacf(decompose.prod.totale$random, na.action = na.pass)
-#Le bruit n'est pas stationnaire et présente une saisonnalité
+#Le bruit n'est pas stationnaire et présente une saisonnalité, le trend n'est pas linéaire
 
 #############______  SARIMA  ______#############
 
 #On différencie la saisonnalité
 
-ts$prod.totale %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d=0, D=1")
-#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité
 
-#On différencie alors encore
-ts$prod.totale %>% diff() %>% diff(.,12) %>% ts.affichage(title = "Production Brute Total d=1, D=1")
+close.screen(all = T)
+ts$prod.totale %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=0, D=1") %>% kpss.test(.)
+#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité, le test KPSS nous le confirme
+
+#On différencie alors encore et on test la stationnarité
+ts$prod.totale %>% diff() %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=1, D=1") %T>% kpss.test(.)
+                          
+
+# p-value > 0.05, on accepte l'hypothèse nulle de stationnarité
+
+#On enregistre alors la série différenciée
+prod.totale.mod1 <- ts$prod.totale %>% diff() %>% diff(.,12)
+
 
 #Maintenant on analyse l'ACF et le pACF
 #Sur l'ACF on va chercher les MA et sur le pACF les AR
@@ -134,10 +142,14 @@ ts$prod.totale %>% diff() %>% diff(.,12) %>% ts.affichage(title = "Production Br
 #Sur le pACF: le premier pic est en faveur d'un AR(1) et le pic en 1 en faveur d'un SAR(1)
 
 #On fit donc un SARIMA(1,1,1)(1,1,1)_12
-fit <- Arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1))
+fit <- arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1))
 ts.affichage(residuals(fit), title = "Résidus SARIMA(1,1,1)(1,1,1)")
-
 #L'ACF et le PACF sont plutôt satisfaisant
+
+#On test la stationnarité des résidus
+kpss.test(residuals(fit))
+#on accpete l'hypothèse nulle de stationnarité
+
 
 fit
 #Tous les coefficients sont significatifs
@@ -145,17 +157,30 @@ fit
 #Il nous faut tester la blancheur des résidus
 #Test Ljung-Box
 x <- rep(0, 2, 48)
-for (i in 2:48){
-  x[i]<- Box.test(residuals(fit), lag=i, fitdf=2, type="Ljung")$p.value
+for (i in 1:48){
+  x[i]<- Box.test(residuals(fit), lag=i, fitdf=4, type="Ljung")$p.value
 }
 plot(x)
+#Nous avons un souci pour le lag qui ne passe pas le test. Sinon pour tous les autres, on accepte l'hypothèse d'absence d'autocorrélation
 
-#qq plot test: il faut que ce soit aligner sur la première bissectrice du plan
-qqnorm((residuals(fit)-mean(residuals(fit)))/sd(residuals(fit)))
+
+
+### Test de normalité
+#on centre et réduit les résidus:
+prod.totale.fit.res.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit))
+
+#qq plot test: il faut que ce soit aligné sur la première bissectrice du plan
+qqnorm(prod.totale.fit.norm)
 abline(0,1, col = "red")
+#Test de Kolmogorov Smirnov
+ks.test(prod.totale.fit.res.norm, 'pnorm') #on accepte (p-value > 0.05)
 
-#On projette sur 36 mois
-predict.arima <- forecast(fit, h=36)
+#Test de Shapiro-Wilk
+shapiro.test(prod.totale.fit.res.norm) #on refuse (p-value < 0.05). Cela est probablement du aux queues de distribution 
+
+
+#On projette sur 12 mois
+predict.arima <- forecast(fit, h=12)
 #On plot
 plot(predict.arima)
 
@@ -176,7 +201,7 @@ plot(HW.model, HW.predict)
 #On plot les prédictions du SARIMA et du Holt-Winters qur le même graphe
 ########>>>>>>>>>>>>> Je n'y arrive pas
 
-#On compare les 2 méthodes en comporant les SSE, c'est le SARIMA qui gagne à ce jeu là
+#On compare les 2 méthodes en comparant les SSE, c'est le SARIMA qui gagne à ce jeu là
 sum(fit$residuals^2) < HW.model$SSE
 
 
@@ -184,20 +209,18 @@ sum(fit$residuals^2) < HW.model$SSE
 #############______   Partie 2: IMPORT   ______#############
 ##############################################################################################
 
-#------- plot de la s�rie --------
-plot(ts$import)       #il semble que la s�rie soit de type multiplicative car l'amplitude de la saisonalit� n'est pas constante
+#------- plot de la s?rie --------
+plot(ts$import)       #il semble que la s?rie soit de type multiplicative car l'amplitude de la saisonalit? n'est pas constante
 plot(log(ts$import))  #On passe au log pour la rendre additive : OK
 
-logimport <- log(ts$import)
+ts <- c(ts,list(logimpor = log(ts$import)))
 #------- ACF , PACF ----------
-acf(logimport)        #pas stationnaire en l'�tat
-pacf(logimport)
+acf(ts$logimpor)        #pas stationnaire en l'?tat
+pacf(ts$logimpor)
 
 #------- Decompose ---------
 
-logimport.decompose <- decompose(logimport,type = "additive")
-acf(logimport.decompose$random, na.action = na.pass)  # A d�faut que la composante al�atoire ne soit pas un bruit blanc, elle n'est m�me pas stationnaire
+logimport.decompose <- decompose(ts$logimpor,type = "additive") 
+acf(logimport.decompose$random, na.action = na.pass)  # A d?faut que la composante al?atoire ne soit pas un bruit blanc, elle n'est m?me pas stationnaire
 pacf(logimport.decompose$random, na.action = na.pass)
 
-plot(logimport.decompose)
-#On différencie la saisonnalité
