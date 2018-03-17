@@ -109,7 +109,7 @@ pacf(ts$prod.totale)
 
 ##Decompose()
 
-decompose.prod.totale <- decompose(ts$prod.totale, type = "additive") %>% plot(.)
+decompose.prod.totale <- decompose(ts$prod.totale, type = "additive") %T>% plot(.)
 
 
 acf(decompose.prod.totale$random, na.action = na.pass)
@@ -126,9 +126,7 @@ ts$prod.totale %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total 
 #L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité, le test KPSS nous le confirme
 
 #On différencie alors encore et on test la stationnarité
-ts$prod.totale %>% diff() %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=1, D=1") %T>% kpss.test(.)
-                          
-
+ts$prod.totale %>% diff() %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=1, D=1") %>% kpss.test(.)
 # p-value > 0.05, on accepte l'hypothèse nulle de stationnarité
 
 #On enregistre alors la série différenciée
@@ -170,7 +168,7 @@ plot(x)
 prod.totale.fit.res.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit))
 
 #qq plot test: il faut que ce soit aligné sur la première bissectrice du plan
-qqnorm(prod.totale.fit.norm)
+qqnorm(prod.totale.fit.res.norm)
 abline(0,1, col = "red")
 #Test de Kolmogorov Smirnov
 ks.test(prod.totale.fit.res.norm, 'pnorm') #on accepte (p-value > 0.05)
