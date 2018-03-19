@@ -9,7 +9,6 @@ library(gridExtra)
 library(grid)
 library(ggplot2)
 library(lattice)
-library(forecast)
 library(tseries)
 
 #fonctions utiles
@@ -123,8 +122,7 @@ pacf(decompose.prod.totale$random, na.action = na.pass)
 
 close.screen(all = T)
 ts$prod.totale %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=0, D=1") %>% kpss.test(.)
-#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité, le test KPSS nous le confirme
-
+#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarité, le test KPSS nous confirme que ce n'est pas stationnaire
 #On différencie alors encore et on test la stationnarité
 ts$prod.totale %>% diff() %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=1, D=1") %>% kpss.test(.)
 # p-value > 0.05, on accepte l'hypothèse nulle de stationnarité
@@ -140,23 +138,23 @@ prod.totale.mod1 <- ts$prod.totale %>% diff() %>% diff(.,12)
 #Sur le pACF: le premier pic est en faveur d'un AR(1) et le pic en 1 en faveur d'un SAR(1)
 
 #On fit donc un SARIMA(1,1,1)(1,1,1)_12
-fit <- arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1))
-ts.affichage(residuals(fit), title = "Résidus SARIMA(1,1,1)(1,1,1)")
+mod.prod <- list(mod1 = arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1)))
+ts.affichage(residuals(mod.prod$mod1), title = "Résidus SARIMA(1,1,1)(1,1,1)")
 #L'ACF et le PACF sont plutôt satisfaisant
 
 #On test la stationnarité des résidus
-kpss.test(residuals(fit))
+kpss.test(residuals(mod.prod$mod1))
 #on accpete l'hypothèse nulle de stationnarité
 
 
-fit
-#Tous les coefficients sont significatifs
+mod.prod$mod1
+#Seul le sar1 est vraiment � la limite de la significativit�, mais l'est quand m�me
 
 #Il nous faut tester la blancheur des résidus
 #Test Ljung-Box
 x <- rep(0, 2, 48)
 for (i in 1:48){
-  x[i]<- Box.test(residuals(fit), lag=i, fitdf=4, type="Ljung")$p.value
+  x[i]<- Box.test(residuals(mod.prod$mod1), lag=i, fitdf=4, type="Ljung")$p.value
 }
 plot(x)
 #Nous avons un souci pour le lag qui ne passe pas le test. Sinon pour tous les autres, on accepte l'hypothèse d'absence d'autocorrélation
@@ -165,7 +163,7 @@ plot(x)
 
 ### Test de normalité
 #on centre et réduit les résidus:
-prod.totale.fit.res.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit))
+prod.totale.fit.res.norm <- (residuals(mod.prod$mod1)-mean(residuals(mod.prod$mod1)))/sd(residuals(mod.prod$mod1))
 
 #qq plot test: il faut que ce soit aligné sur la première bissectrice du plan
 qqnorm(prod.totale.fit.res.norm)
@@ -178,7 +176,7 @@ shapiro.test(prod.totale.fit.res.norm) #on refuse (p-value < 0.05). Cela est pro
 
 
 #On projette sur 12 mois
-predict.arima <- forecast(fit, h=12)
+predict.arima <- forecast(mod.prod$mod1, h=12)
 #On plot
 plot(predict.arima)
 
@@ -201,6 +199,25 @@ plot(HW.model, HW.predict)
 
 #On compare les 2 méthodes en comparant les SSE, c'est le SARIMA qui gagne à ce jeu là
 sum(fit$residuals^2) < HW.model$SSE
+
+
+
+##### Back testing
+
+ts <- c(ts,list(shortProd = ts(data$Production.Totale.Brute, frequency = 12,  start = c(1981,1), end = c(2016, 11))))
+
+fit <- arima(ts$shortProd, order=c(1,1,1), seasonal=c(1,1,1))
+
+ts.affichage(residuals(fit), title = paste0("Résidus SARIMA(",1,",",1, ",", 1, ")("
+                                            ,1,",",1, ",", 1, ")"))
+#On projette sur 12 mois
+back.predict.arima <- forecast(fit, h=12)
+
+
+plot(back.predict.arima)
+#On rajoute la série totale
+lines(ts$prod.totale)
+
 
 
 ##############################################################################################
