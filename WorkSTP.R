@@ -414,7 +414,7 @@ plot(predict.arima)
 #Because exponentiel is strictement croissante
 #alors je peu composer pour avoir mon interval de confiance
 
-predict.arima$lower <- exp(predict.arima$lower)
+predict.arima$lower <- exp(predict.arima$lower)    #MIKA : William, as-tu bien vérifié avec la formule de propagation des erreurs?
 predict.arima$upper <- exp(predict.arima$upper)
 predict.arima$x <- exp(predict.arima$x)
 predict.arima$fitted <- exp(predict.arima$fitted)
@@ -488,31 +488,60 @@ pacf(logphoto)
 kpss.test(logphoto.decompose$random) #la partie aleatoire de la est stationnaire
 
 #On différencie une fois avec une période de 12
-logphoto %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.)
+logphoto %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.) #MAUVAIS KPSS
+logphoto %>% diff(.) %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
+
+
+
 #On identifie alors les composantes:
 # ordre de différentiation: d = 1
 # composante AR : q = 1 - En effet, l'ACF decroit exponentiellement vite et les autocorrelations sont nulles après 1
 # composante MA : p = 0 - Il n'y a apparemment pas de composante en MA à retenir (A vérifier - tester)
 # Y a-t-il des composantes saisonnières ? TODO
 
+#Modele: SARIMA(1,1,0)(2,1,0)
 fit<-arima(logphoto,order = c(1,1,0), seasonal = c(2,1,0)) 
+
+#Significativité des paramètres: OK
 fit.significiant <- (1-pnorm(abs(fit$coef)/sqrt(diag(fit$var.coef))))*2
 fit.significiant <= 0.05 #Significatifs avec SAR = 2, pas avec SAR = 1
 
-fit.R2 <- 1 - ((fit$sigma2 / (fit$nobs-length(fit$coef))) / var(logphoto)/fit$nobs ) #PARFAIT
+#R2 : OK
+fit.R2 <- 1 - ((fit$sigma2 / (fit$nobs-length(fit$coef))) / var(logphoto)/fit$nobs )
 
+#AIC : TODO: Il fuadra d'autres modèles avec lequel comparer
+fit$aic
+
+#Prediciton
 predictlogphoto<-forecast(fit)
 
 acf(predictlogphoto$residuals) #les résidus ont l'air stationnaires
 pacf(predictlogphoto$residuals)
 
+#résidus normalisés 
 logphotopredict.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit) )
 
-#qq plot test: il faut que ce soit alignÃ© sur la premiÃ¨re bissectrice du plan
+#Test de normalité des résidus: Kolmogorov Smirnov
 qqnorm(logphotopredict.norm)
 abline(0,1, col = "red")
-#Test de Kolmogorov Smirnov
-ks.test(logphotopredict.norm, 'pnorm') #on accepte (p-value > 0.05)
+ks.test(logphotopredict.norm, 'pnorm') #on accepte (p-value > 0.05) OK
 
+#Test d'absence de correlation des résidus
 Box.test(logphotopredict.norm)
-kpss.test(logphotopredict.norm) #stationnarité ok
+
+kpss.test(logphotopredict.norm) # OK
+
+#------- HOLT WINTERS -------
+HW.model <- HoltWinters(logphoto)
+
+#Prévision
+HW.predict <- predict(HW.model, 12, level = 0.95, prediction.interval = T)
+#On plot
+HW.predict %<>% exp
+
+HW.model$x %<>% exp
+
+plot(HW.model, HW.predict)
+
+sum(fit$residuals^2) < HW.model$SSE
+#le SARIMA est meilleur
