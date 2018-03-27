@@ -10,6 +10,7 @@ library(grid)
 library(ggplot2)
 library(lattice)
 library(tseries)
+library(broom)
 
 #fonctions utiles
 ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
@@ -24,6 +25,30 @@ ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
   screen(4)
   pacf(ts,lag.max = lag.max,main="pACF",na.action = na.pass)
   close.screen(all = TRUE)
+}
+
+#cette fonction permet d'avoir la série à l'exponentiel apres fitting
+#Elle propage l'erreur du log-modèle au modèle (sans log)
+#Cf. propagation des incertitudes sur wikipedia
+#Globalement, les resultats nous arrangent moins, mais s'il s'avère que c'est la bonne formule
+#   alors, il faut quand même la garder, et expliquer dans le rapport d'où elle sort et comment on l'a utilisé pour le problème
+LogToExp<-function(predict.predict.logModel)
+{
+  logSup <- predict.logModel$upper
+  logInf <- predict.logModel$lower
+  logMean <- predict.logModel$mean
+  logSupError <- logSup - logMean   #on recupère l'erreur sup relative
+  logInfError <- logMean - logInf   #on récupère l'erreur inf relative
+  
+  mean<- exp(predict.logModel$mean) #on adapte le parcourt central
+  
+  predict.logModel$x <- exp(predict.logModel$x)            #NO PARTICULAR CHANGE
+  predict.logModel$fitted <- exp(predict.logModel$fitted)  #NO PARTICULAR CHANGE
+  predict.logModel$mean <- mean                            #NO PARTICULAR CHANGE
+  predict.logModel$upper <- mean*(1+logSupError) #cas particulier de formule dans le cas log->exp
+  predict.logModel$lower <- mean*(1-logInfError)
+  
+  return (predict.logModel)
 }
 
 
@@ -472,7 +497,7 @@ plot(back.predict.arima)
 lines(ts$import)
 
 ##############################################################################################
-#############______   Partie 2: PHOTOVOLTAIQUE  ______#############
+#############______   Partie 3: PHOTOVOLTAIQUE  ______#############
 ##############################################################################################
 
 plot(ts$photo)            # Modèle à priori multiplicatif
@@ -485,13 +510,15 @@ plot(logphoto.decompose)  # Saisonnalité 12
 acf(logphoto) #Pas stationnaire
 pacf(logphoto)
 
-kpss.test(logphoto.decompose$random) #la partie aleatoire de la est stationnaire
+ts.affichage(logphoto)
 
-#On différencie une fois avec une période de 12
-logphoto %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.) #MAUVAIS KPSS
-logphoto %>% diff(.) %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
+kpss.test(logphoto.decompose$random) #la partie aleatoire de la série décomposée est stationnaire
 
 
+#----------- SARIMA (2,1,0)(1,1,0) ------------
+
+#----- Identification des ordres -----
+logphoto %>% diff(.,differences = 1) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
 
 #On identifie alors les composantes:
 # ordre de différentiation: d = 1
@@ -499,37 +526,150 @@ logphoto %>% diff(.) %>% diff(.,lag=12) %T>% ts.affichage() %>% kpss.test(.) #KP
 # composante MA : p = 0 - Il n'y a apparemment pas de composante en MA à retenir (A vérifier - tester)
 # Y a-t-il des composantes saisonnières ? TODO
 
-#Modele: SARIMA(1,1,0)(2,1,0)
-fit<-arima(logphoto,order = c(1,1,0), seasonal = c(2,1,0)) 
+SARIMA210110<-arima(logphoto,order = c(2,1,0), seasonal = c(1,1,0)) #1 correspond à D=12 dans la seasonnalité
 
-#Significativité des paramètres: OK
-fit.significiant <- (1-pnorm(abs(fit$coef)/sqrt(diag(fit$var.coef))))*2
-fit.significiant <= 0.05 #Significatifs avec SAR = 2, pas avec SAR = 1
+#----- Significativité des paramètres ----
+(1-pnorm(abs(SARIMA210110$coef)/sqrt(diag(SARIMA210110$var.coef))))*2 <= 0.05 # OK
 
-#R2 : OK
-fit.R2 <- 1 - ((fit$sigma2 / (fit$nobs-length(fit$coef))) / var(logphoto)/fit$nobs )
+#----- Prévision ------
+predict.SARIMA210110<-forecast(SARIMA210110)
 
-#AIC : TODO: Il fuadra d'autres modèles avec lequel comparer
-fit$aic
+#----- Vérification des hypothèses ----
+acf(predict.SARIMA210110$residuals) #les résidus ont l'air stationnaires
+pacf(predict.SARIMA210110$residuals) #pacf un peu limite...
 
-#Prediciton
-predictlogphoto<-forecast(fit)
-
-acf(predictlogphoto$residuals) #les résidus ont l'air stationnaires
-pacf(predictlogphoto$residuals)
-
-#résidus normalisés 
-logphotopredict.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit) )
+predict.SARIMA210110.residuals.norm<- (residuals(predict.SARIMA210110)-mean(residuals(predict.SARIMA210110)))/sd(residuals(predict.SARIMA210110) )
 
 #Test de normalité des résidus: Kolmogorov Smirnov
-qqnorm(logphotopredict.norm)
+qqnorm(predict.SARIMA210110.residuals.norm)
 abline(0,1, col = "red")
-ks.test(logphotopredict.norm, 'pnorm') #on accepte (p-value > 0.05) OK
+ks.test(predict.SARIMA210110.residuals.norm, 'pnorm') # OK (p-value>0.05)
 
 #Test d'absence de correlation des résidus
-Box.test(logphotopredict.norm)
+Box.test(predict.SARIMA210110.residuals.norm) # OK
+kpss.test(predict.SARIMA210110.residuals.norm) # OK
+shapiro.test(predict.SARIMA210110.residuals.norm) # KO
 
-kpss.test(logphotopredict.norm) # OK
+#---- Affichage ----
+exp.predict.SARIMA210110 <- LogToExp(predict.SARIMA210110) 
+plot(exp.predict.SARIMA210110)
+#On passe repasse à l'exponentiel
+#predict.SARIMA210110$lower <- exp(predict.SARIMA210110$lower)
+#predict.SARIMA210110$upper <- exp(predict.SARIMA210110$upper)
+#predict.SARIMA210110$x <- exp(predict.SARIMA210110$x)
+#predict.SARIMA210110$fitted <- exp(predict.SARIMA210110$fitted)
+#predict.SARIMA210110$mean <- exp(predict.SARIMA210110$mean)
+#plot(predict.SARIMA210110)
+
+#----------- SARIMA (6,2,0)(1,1,0) ------------
+
+#----- Identification des ordres -----
+logphoto %>% diff(.,differences = 2) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
+
+SARIMA620110<-arima(logphoto,order = c(6,2,0), seasonal = c(1,1,0)) #1 correspond à D=12 dans la seasonnalité
+
+#----- Significativité des paramètres ----
+(1-pnorm(abs(SARIMA620110$coef)/sqrt(diag(SARIMA620110$var.coef))))*2 <= 0.05 # OK
+
+#----- Prévision ------
+predict.SARIMA620110<-forecast(SARIMA620110)
+
+#----- Vérification des hypothèses ----
+acf(predict.SARIMA620110$residuals) #les résidus ont l'air stationnaires
+pacf(predict.SARIMA620110$residuals) #pacf un peu limite...
+
+predict.SARIMA620110.residuals.norm<- (residuals(predict.SARIMA620110)-mean(residuals(predict.SARIMA620110)))/sd(residuals(predict.SARIMA620110) )
+
+#Test de normalité des résidus: Kolmogorov Smirnov
+qqnorm(predict.SARIMA620110.residuals.norm)
+abline(0,1, col = "red")
+ks.test(predict.SARIMA620110.residuals.norm, 'pnorm') # OK (p-value>0.05)
+
+#Test d'absence de correlation des résidus
+Box.test(predict.SARIMA620110.residuals.norm) # OK
+kpss.test(predict.SARIMA620110.residuals.norm) # OK
+shapiro.test(predict.SARIMA620110.residuals.norm) # KO
+
+#---- Affichage ----
+exp.predict.SARIMA620110 <- LogToExp(predict.SARIMA620110)
+plot(exp.predict.SARIMA620110)
+
+#On passe repasse à l'exponentiel
+#predict.SARIMA620110$lower <- exp(predict.SARIMA620110$lower)
+#predict.SARIMA620110$upper <- exp(predict.SARIMA620110$upper)
+#predict.SARIMA620110$x <- exp(predict.SARIMA620110$x)
+#predict.SARIMA620110$fitted <- exp(predict.SARIMA620110$fitted)
+#predict.SARIMA620110$mean <- exp(predict.SARIMA620110$mean)
+#plot(predict.SARIMA620110)
+
+
+
+
+#----------- SARIMA (5,2,0)(1,1,0) ------------
+
+
+
+#----- Identification des ordres -----
+logphoto %>% diff(.,differences = 2) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
+
+SARIMA520110<-arima(logphoto,order = c(5,2,0), seasonal = c(1,1,0)) #1 correspond à D=12 dans la seasonnalité
+
+#----- Significativité des paramètres ----
+(1-pnorm(abs(SARIMA520110$coef)/sqrt(diag(SARIMA520110$var.coef))))*2 <= 0.05 # OK
+
+#----- Prévision ------
+predict.SARIMA520110<-forecast(SARIMA520110)
+
+#----- Vérification des hypothèses ----
+acf(predict.SARIMA520110$residuals) #les résidus ont l'air stationnaires
+pacf(predict.SARIMA520110$residuals) #pacf un peu limite...
+
+predict.SARIMA520110.residuals.norm<- (residuals(predict.SARIMA520110)-mean(residuals(predict.SARIMA520110)))/sd(residuals(predict.SARIMA520110) )
+
+#Test de normalité des résidus: Kolmogorov Smirnov
+qqnorm(predict.SARIMA520110.residuals.norm)
+abline(0,1, col = "red")
+ks.test(predict.SARIMA520110.residuals.norm, 'pnorm') # OK (p-value>0.05)
+
+#Test d'absence de correlation des résidus
+Box.test(predict.SARIMA520110.residuals.norm) # OK
+kpss.test(predict.SARIMA520110.residuals.norm) # OK
+shapiro.test(predict.SARIMA520110.residuals.norm) # KO
+
+#---- Affichage ----
+exp.predict.SARIMA520110 <- LogToExp(predict.SARIMA520110)
+plot(exp.predict.SARIMA520110)
+#On passe repasse à l'exponentiel
+#predict.SARIMA520110$lower <- exp(predict.SARIMA210110$lower)
+#predict.SARIMA520110$upper <- exp(predict.SARIMA520110$upper)
+#predict.SARIMA520110$x <- exp(predict.SARIMA520110$x)
+#predict.SARIMA520110$fitted <- exp(predict.SARIMA520110$fitted)
+#predict.SARIMA520110$mean <- exp(predict.SARIMA520110$mean)
+#plot(predict.SARIMA520110)
+
+
+
+# ---------- SELECTION DE MODELE --------
+
+# AIC / BIC : On veut minimiser les deux
+glance(SARIMA210110)
+glance(SARIMA620110)
+glance(SARIMA520110)
+# Le premier modèle est meilleur par rapport au BIC
+# Le deuxième modèle est meilleur par rapport à l'AIC
+
+#----- Pouvoir explicatif - R2 -----
+1 - (SARIMA210110$sigma2 / (SARIMA210110$nobs-length(SARIMA210110$coef))) / (var(logphoto)/(SARIMA210110$nobs-1))
+1 - (SARIMA620110$sigma2 / (SARIMA620110$nobs-length(SARIMA620110$coef))) / (var(logphoto)/(SARIMA620110$nobs-1))
+1 - (SARIMA520110$sigma2 / (SARIMA520110$nobs-length(SARIMA520110$coef))) / (var(logphoto)/(SARIMA520110$nobs-1))
+#Les deux modèles sont équivalent par rapport au R2
+
+#----- Fisher ------
+((var(logphoto) - SARIMA210110$sigma2)/SARIMA210110$nobs-length(SARIMA210110$coef)) / (SARIMA210110$sigma2/(SARIMA210110$nobs-1))
+((var(logphoto) - SARIMA620110$sigma2)/SARIMA620110$nobs-length(SARIMA620110$coef)) / (SARIMA620110$sigma2/(SARIMA620110$nobs-1))
+((var(logphoto) - SARIMA520110$sigma2)/SARIMA520110$nobs-length(SARIMA520110$coef)) / (SARIMA520110$sigma2/(SARIMA520110$nobs-1))
+#Le premier modèle est bien meilleur par rapport à la statistique de fisher
+
 
 #------- HOLT WINTERS -------
 HW.model <- HoltWinters(logphoto)
@@ -543,5 +683,6 @@ HW.model$x %<>% exp
 
 plot(HW.model, HW.predict)
 
-sum(fit$residuals^2) < HW.model$SSE
-#le SARIMA est meilleur
+sum(SARIMA210110$residuals^2) < HW.model$SSE
+sum(SARIMA620110$residuals^2) < HW.model$SSE
+
