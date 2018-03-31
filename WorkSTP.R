@@ -8,12 +8,10 @@ library(gridExtra)
 library(grid)
 library(ggplot2)
 library(lattice)
+library(forecast)
 library(tseries)
 library(broom)
-<<<<<<< HEAD
 library(lmtest)
-=======
->>>>>>> c4932520c32af0144b81e33d77cad669dc855ec0
 
 #fonctions utiles
 ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
@@ -28,30 +26,6 @@ ts.affichage <- function(ts, lag.max = 48,title="Mon titre"){
   screen(4)
   pacf(ts,lag.max = lag.max,main="pACF",na.action = na.pass)
   close.screen(all = TRUE)
-}
-
-#cette fonction permet d'avoir la sÈrie ‡ l'exponentiel apres fitting
-#Elle propage l'erreur du log-modËle au modËle (sans log)
-#Cf. propagation des incertitudes sur wikipedia
-#Globalement, les resultats nous arrangent moins, mais s'il s'avËre que c'est la bonne formule
-#   alors, il faut quand mÍme la garder, et expliquer dans le rapport d'o˘ elle sort et comment on l'a utilisÈ pour le problËme
-LogToExp<-function(predict.predict.logModel)
-{
-  logSup <- predict.logModel$upper
-  logInf <- predict.logModel$lower
-  logMean <- predict.logModel$mean
-  logSupError <- logSup - logMean   #on recupËre l'erreur sup relative
-  logInfError <- logMean - logInf   #on rÈcupËre l'erreur inf relative
-  
-  mean<- exp(predict.logModel$mean) #on adapte le parcourt central
-  
-  predict.logModel$x <- exp(predict.logModel$x)            #NO PARTICULAR CHANGE
-  predict.logModel$fitted <- exp(predict.logModel$fitted)  #NO PARTICULAR CHANGE
-  predict.logModel$mean <- mean                            #NO PARTICULAR CHANGE
-  predict.logModel$upper <- mean*(1+logSupError) #cas particulier de formule dans le cas log->exp
-  predict.logModel$lower <- mean*(1-logInfError)
-  
-  return (predict.logModel)
 }
 
 
@@ -261,7 +235,8 @@ pacf(decompose.prod.totale$random, na.action = na.pass)
 
 close.screen(all = T)
 ts$prod.totale %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=0, D=1") %>% kpss.test(.)
-#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarit√©, le test KPSS nous confirme que ce n'est pas stationnaire
+#L'analyse de l'ACF et du pACF ne nous permet de conclure nettement en faveur de la stationnarit√©, le test KPSS nous le confirme
+
 #On diff√©rencie alors encore et on test la stationnarit√©
 ts$prod.totale %>% diff(., differences = 1) %>% diff(.,12) %T>% ts.affichage(title = "Production Brute Total d=1, D=1") %>% kpss.test(.)
 # p-value > 0.05, on accepte l'hypoth√®se nulle de stationnarit√©
@@ -274,7 +249,6 @@ ts$prod.totale %>% diff(., differences = 1) %>% diff(.,12) %T>% ts.affichage(tit
 #Sur le pACF: le premier pic est en faveur d'un AR(1) et le pic en 1 en faveur d'un SAR(1)
 
 #On fit donc un SARIMA(1,1,1)(1,1,1)_12
-<<<<<<< HEAD
 prod.totale <- list(mod.111_111 = arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1))) #order=c(4,2,1), seasonal=c(0,1,1)
 prod.totale$mod.111_111%>% residuals(.)%T>%ts.affichage(., title = "R√©sidus SARIMA(1,1,1)(1,1,1)") %>% kpss.test(., lshort = F)
 
@@ -296,28 +270,6 @@ prod.totale$mod.111_111 %>% ljung.box.pvalues(fit = . , fitdf = 4) %>% plot(.,yl
 abline(a= 0.05, b =0, col = 'red')
 close.screen(all = T)
 #Le test ne passe pas pour les 2 premiers points -> pr√©sence d'autocorr√©lation
-=======
-mod.prod <- list(mod1 = arima(ts$prod.totale, order=c(1,1,1), seasonal=c(1,1,1)))
-ts.affichage(residuals(mod.prod$mod1), title = "R√©sidus SARIMA(1,1,1)(1,1,1)")
-#L'ACF et le PACF sont plut√¥t satisfaisant
-
-#On test la stationnarit√© des r√©sidus
-kpss.test(residuals(mod.prod$mod1))
-#on accpete l'hypoth√®se nulle de stationnarit√©
-
-
-mod.prod$mod1
-#Seul le sar1 est vraiment ‡ la limite de la significativitÈ, mais l'est quand mÍme
-
-#Il nous faut tester la blancheur des r√©sidus
-#Test Ljung-Box
-x <- rep(0, 2, 48)
-for (i in 1:48){
-  x[i]<- Box.test(residuals(mod.prod$mod1), lag=i, fitdf=4, type="Ljung")$p.value
-}
-plot(x)
-#Nous avons un souci pour le lag qui ne passe pas le test. Sinon pour tous les autres, on accepte l'hypoth√®se d'absence d'autocorr√©lation
->>>>>>> c4932520c32af0144b81e33d77cad669dc855ec0
 
 #Test de Student pour v√©rifier que la moyenne est centr√©e
 prod.totale$mod.111_111 %>% residuals() %>% t.test(., mu = 0)
@@ -325,11 +277,6 @@ prod.totale$mod.111_111 %>% residuals() %>% t.test(., mu = 0)
 
 
 ### Test de normalit√©
-<<<<<<< HEAD
-=======
-#on centre et r√©duit les r√©sidus:
-prod.totale.fit.res.norm <- (residuals(mod.prod$mod1)-mean(residuals(mod.prod$mod1)))/sd(residuals(mod.prod$mod1))
->>>>>>> c4932520c32af0144b81e33d77cad669dc855ec0
 
 #On cherche √† savoir si le bruit blanc est gaussien, de moyenne nulle et de variance donn√©e
 #qq plot test des r√©sidus r√©duits: il faut que ce soit align√© sur la premi√®re bissectrice du plan,
@@ -415,7 +362,7 @@ make_rendu(ts$prod.totale, make_param(1,1,1,0,1,1))
 #On retient notre premier mod√®le qui pr√©sente toutefois des d√©fauts dans la validation des hypoth√®ses
 
 #On projette sur 12 mois
-predict.arima <- forecast(mod.prod$mod1, h=12)
+predict.arima <- forecast(fit, h=12)
 #On plot
 plot(predict.arima)
 
@@ -441,24 +388,6 @@ sum(fit$residuals^2) < HW.model$SSE
 
 
 
-<<<<<<< HEAD
-=======
-##### Back testing
-
-ts <- c(ts,list(shortProd = ts(data$Production.Totale.Brute, frequency = 12,  start = c(1981,1), end = c(2016, 11))))
-
-fit <- arima(ts$shortProd, order=c(1,1,1), seasonal=c(1,1,1))
-
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",1,",",1, ",", 1, ")("
-                                            ,1,",",1, ",", 1, ")"))
-#On projette sur 12 mois
-back.predict.arima <- forecast(fit, h=12)
-
-
-plot(back.predict.arima)
-#On rajoute la s√©rie totale
-lines(ts$prod.totale)
->>>>>>> c4932520c32af0144b81e33d77cad669dc855ec0
 
 
 
@@ -470,9 +399,7 @@ lines(ts$prod.totale)
 plot(ts$import)       #il semble que la s?rie soit de type multiplicative car l'amplitude de la saisonalit? n'est pas constante
 plot(log(ts$import))  #On passe au log pour la rendre additive : OK
 
-#On a maintenant le log de notre s√©rie. La composition par le log est l√©gale parce que la fonction log est strictement croissante
 ts <- c(ts,list(logimpor = log(ts$import)))
-
 #------- ACF , PACF ----------
 acf(ts$logimpor)        #pas stationnaire en l'?tat
 pacf(ts$logimpor)
@@ -483,7 +410,6 @@ logimport.decompose <- decompose(ts$logimpor,type = "additive")
 acf(logimport.decompose$random, na.action = na.pass)  # A d?faut que la composante al?atoire ne soit pas un bruit blanc, elle n'est m?me pas stationnaire
 pacf(logimport.decompose$random, na.action = na.pass)
 
-<<<<<<< HEAD
 
 arima.111_011 <- arima.sim()
 
@@ -498,425 +424,4 @@ fit %>% residuals() %>% ts.affichage(., title = "Fit")
 fit %>% ljung.box.pvalues(fit = . , fitdf = 2) %>% plot(.,ylim = c(0,1))
 abline(h = 0.05, col = "red")
 
-=======
-#Le bruit n'est pas stationnaire et pr√©sente une saisonnalit√©, le trend n'est pas lin√©aire!!!
-#Il va falloir r√©fl√©chir autrement du coup - un trend non lin√©aire -> bof avec moyenne mobiles
-
-#------- SARIMA  ----------
-
-#Essayons de trouver la diff√©renciation la plus repr√©sentative
-close.screen(all = T)
-stck <- ts$logimpor %>% diff(.,12) %>% kpss.test(.)
-
-logimport_kpss_test <- data.frame(matrix(0, 11, 4))
-
-names(logimport_kpss_test) <- c("diff_12_diff_i_kpss", "diff_12_diff_i_p_value", "diff_i_kpss", "diff_i_p_value")
-for(i in 1:11)
-{
-  suppressWarnings(tmp_12 <- ts$logimpor %>% diff(.,12) %>% diff(., i) %>% kpss.test(.))
-  suppressWarnings(tmp <- ts$logimpor %>% diff(., i) %>% kpss.test(.))
-  logimport_kpss_test[i, 1] <- tmp_12$statistic %>% unname()
-  logimport_kpss_test[i, 2] <- tmp_12$p.value %>% unname()
-  logimport_kpss_test[i, 3] <- tmp$statistic %>% unname()
-  logimport_kpss_test[i, 4] <- tmp$p.value %>% unname()
-}
-
-print(logimport_kpss_test)
-
-#Clairement, d = 1 et D = 12 nous apporte la s√©rie la plus stationnaire; trouvons les parametres maximums pour les sarimas que nous allons fitter ainsi
-
-logimport_parameters <- list(d = 1, D = 12)
-
-ts$logimpor %>% diff() %>% diff(.,12) %>% ts.affichage(title = "Imports d=1, D=1")
-
-#Un processus AR d‚Äôordre p se caract√©rise par sa fonction d‚Äôautocorr√©lation partielle qui s‚Äôannule √† partir de l‚Äôordre p + 1.
-
-#Un processus MA d‚Äôordre q se caract√©rise par sa fonction d‚Äôautocorr√©lation qui s‚Äôannule √† partir de l‚Äôordre q + 1.
-
-#Donc arma(p, q) -> arima(p, q, d)
-
-#ici p = 2 # pacf s'annule en 3
-#ici q = 1 # acf s'annule en 2
-#ici P = 3 # saisonnalit√© pacf jusqu'√† au moins 4
-#ici Q = 1 # saisonalit√© acf jusqu'√† 2
-
-logimport_parameters$p <- 2
-logimport_parameters$q <- 1
-logimport_parameters$P <- 3
-logimport_parameters$Q <- 1
-
-fit <- arima(ts$logimpor, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-
-#test de stationnarit√© des r√©sidus
-kpss.test(residuals(fit))
-
-fit
-#ar2, sar2 et sar3 non significatifs
-
-#--------------- virons ar2
-
-
-logimport_parameters$p = 1
-
-fit <- arima(ts$logimpor, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-
-#test de stationnarit√© des r√©sidus
-kpss.test(residuals(fit))
-
-fit
-
-#--------------- virons sar3
-
-logimport_parameters$P =2
-
-fit <- arima(ts$logimpor, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-
-#test de stationnarit√© des r√©sidus
-kpss.test(residuals(fit))
-
-fit
-
-#--------------- virons sar2
-
-logimport_parameters$P = 1
-
-fit <- arima(ts$logimpor, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-
-#test de stationnarit√© des r√©sidus
-kpss.test(residuals(fit))
-
-fit
-#Jai un joli sarima qui fonctionne sa m√®re
-
-#!!!!!!!!!!!
-
-#CHERCHONS MIEUX
-
-aic_from_model <- function(logimport_parameters, ts_to_study)
-{
-  fit <- arima(ts_to_study, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-               seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-  )
-  print(fit)
-  return(fit$aic)
-}
-
-#Voici le model que j'ai trouv√© tout √† l'heure, il me va bien, voyons voir si on a mieux en baissant les parametres
-aic_from_model(ts_to_study = ts$logimpor, logimport_parameters = list(p = 1, q = 1, d = 1, P = 1, Q = 1, D = 1))
-
-aic_from_model(ts_to_study = ts$logimpor, logimport_parameters = list(p = 1, q = 1, d = 1, P = 1, Q = 0, D = 1))
-
-#Ce modele est meilleur, je n'arrive pas √† trouver mieux en brutefor√ßant...
-logimport_parameters = list(p = 1, q = 1, d = 1, P = 1, Q = 0, D = 1)
-
-fit <- arima(ts$logimpor, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-
-#test de stationnarit√© des r√©sidus
-kpss.test(residuals(fit))
-
-#Il nous faut tester la blancheur des r√©sidus
-#Test Ljung-Box
-x <- rep(0, 2, 48)
-for (i in 1:48){
-  x[i]<- Box.test(residuals(fit), lag=i, fitdf=4, type="Ljung")$p.value
-}
-plot(x)
-
-#WARNING
-#WARNING
-
-#Je sais pas comment interpr√©ter ce truc.... Je dirais que c'est loin d'√™tre une droite, que c'est moche
-#ET donc pr√©sence d'autocorrelations ? 
-
-#on centre et r√©duit les r√©sidus:
-logimport.fit.res.norm <- (residuals(fit)-mean(residuals(fit)))/sd(residuals(fit))
-
-#qq plot test: il faut que ce soit align√© sur la premi√®re bissectrice du plan
-qqnorm(logimport.fit.res.norm)
-abline(0,1, col = "red")
-
-#Test de Kolmogorov Smirnov
-ks.test(logimport.fit.res.norm, 'pnorm') #on accepte (p-value > 0.05)
-
-#Test de Shapiro-Wilk
-shapiro.test(logimport.fit.res.norm) #on refuse (p-value < 0.05). Cela est probablement du aux queues de distribution 
-
-#On projette sur 12 mois
-predict.arima <- forecast(fit, h=12)
-#On plot
-plot(predict.arima)
-
-#Because exponentiel is strictement croissante
-#alors je peu composer pour avoir mon interval de confiance
-
-predict.arima$lower <- exp(predict.arima$lower)    #MIKA : William, as-tu bien vÈrifiÈ avec la formule de propagation des erreurs?
-predict.arima$upper <- exp(predict.arima$upper)
-predict.arima$x <- exp(predict.arima$x)
-predict.arima$fitted <- exp(predict.arima$fitted)
-predict.arima$mean <- exp(predict.arima$mean)
-
-plot(predict.arima)
-
-#On garde ce joli sarima
-
-#------- HOLT WINTERS -------
-
-#On fit un Holt-Winters basique sur la s√©rie
-HW.model <- HoltWinters(ts$logimpor)
-
-#On projette
-HW.predict_80 <- predict(object = HW.model, 12, level = 0.80, prediction.interval = T) #Mettre prediction.interval = T si on veut l'intervalle de confiance
-HW.predict_95 <- predict(object = HW.model, 12, level = 0.95, prediction.interval = T) #Mettre prediction.interval = T si on veut l'intervalle de confiance
-
-#On plot
-HW.predict_80 %<>% exp
-HW.predict_95 %<>% exp
-
-HW.model$x %<>% exp
-
-plot(HW.model, HW.predict_80)
-plot(HW.model, HW.predict_95)
-
-sum(fit$residuals^2) < HW.model$SSE
-
-#SARIMA qui gagne!
-
-#BACKTESTS IMPORT--------------------
-#Now time to give some graphs
-#Backtestons nos pr√©dictions sur l'ann√©e pr√©c√©dente de la fin des observations
-ts <- c(ts,list(shortlogimport =  ts(log(data$Importations), frequency = 12,  start = c(1981,1), end = c(2016, 11))))
-
-fit <- arima(ts$shortlogimport, order=c(logimport_parameters$p,logimport_parameters$q,logimport_parameters$d),
-             seasonal=c(logimport_parameters$P,logimport_parameters$Q,1)
-)
-
-ts.affichage(residuals(fit), title = paste0("R√©sidus SARIMA(",logimport_parameters$p,",",logimport_parameters$q, ",", logimport_parameters$d, ")("
-                                            ,logimport_parameters$P,",",logimport_parameters$Q, ",", 1, ")"))
-#On projette sur 12 mois
-back.predict.arima <- forecast(fit, h=12)
-#On passe √† l'exponentiel
-back.predict.arima$lower <- exp(back.predict.arima$lower)
-back.predict.arima$upper <- exp(back.predict.arima$upper)
-back.predict.arima$x <- exp(back.predict.arima$x)
-back.predict.arima$fitted <- exp(back.predict.arima$fitted)
-back.predict.arima$mean <- exp(back.predict.arima$mean)
-
-
-plot(back.predict.arima)
-#On rajoute la s√©rie totale
-lines(ts$import)
-
-##############################################################################################
-#############______   Partie 3: PHOTOVOLTAIQUE  ______#############
-##############################################################################################
-
-plot(ts$photo)            # ModËle ‡ priori multiplicatif
-logphoto <- log(ts$photo) # On passe au log pour homogeneiser la variance et passer dans un modËle additif
-plot(logphoto)            # Ok , ca semble additif
-
-logphoto.decompose<-decompose(logphoto)
-plot(logphoto.decompose)  # SaisonnalitÈ 12
-
-acf(logphoto) #Pas stationnaire
-pacf(logphoto)
-
-ts.affichage(logphoto)
-
-kpss.test(logphoto.decompose$random) #la partie aleatoire de la sÈrie dÈcomposÈe est stationnaire
-
-
-#----------- SARIMA (2,1,0)(1,1,0) ------------
-
-#----- Identification des ordres -----
-logphoto %>% diff(.,differences = 1) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
-
-#On identifie alors les composantes:
-# ordre de diffÈrentiation: d = 1
-# composante AR : q = 1 - En effet, l'ACF decroit exponentiellement vite et les autocorrelations sont nulles aprËs 1
-# composante MA : p = 0 - Il n'y a apparemment pas de composante en MA ‡ retenir (A vÈrifier - tester)
-# Y a-t-il des composantes saisonniËres ? TODO
-
-SARIMA210110<-arima(logphoto,order = c(2,1,0), seasonal = c(1,1,0)) #1 correspond ‡ D=12 dans la seasonnalitÈ
-
-#----- SignificativitÈ des paramËtres ----
-(1-pnorm(abs(SARIMA210110$coef)/sqrt(diag(SARIMA210110$var.coef))))*2 <= 0.05 # OK
-
-#----- PrÈvision ------
-predict.SARIMA210110<-forecast(SARIMA210110)
-
-#----- VÈrification des hypothËses ----
-acf(predict.SARIMA210110$residuals) #les rÈsidus ont l'air stationnaires
-pacf(predict.SARIMA210110$residuals) #pacf un peu limite...
-
-predict.SARIMA210110.residuals.norm<- (residuals(predict.SARIMA210110)-mean(residuals(predict.SARIMA210110)))/sd(residuals(predict.SARIMA210110) )
-
-#Test de normalitÈ des rÈsidus: Kolmogorov Smirnov
-qqnorm(predict.SARIMA210110.residuals.norm)
-abline(0,1, col = "red")
-ks.test(predict.SARIMA210110.residuals.norm, 'pnorm') # OK (p-value>0.05)
-
-#Test d'absence de correlation des rÈsidus
-Box.test(predict.SARIMA210110.residuals.norm) # OK
-kpss.test(predict.SARIMA210110.residuals.norm) # OK
-shapiro.test(predict.SARIMA210110.residuals.norm) # KO
-
-#---- Affichage ----
-exp.predict.SARIMA210110 <- LogToExp(predict.SARIMA210110) 
-plot(exp.predict.SARIMA210110)
-#On passe repasse ‡ l'exponentiel
-#predict.SARIMA210110$lower <- exp(predict.SARIMA210110$lower)
-#predict.SARIMA210110$upper <- exp(predict.SARIMA210110$upper)
-#predict.SARIMA210110$x <- exp(predict.SARIMA210110$x)
-#predict.SARIMA210110$fitted <- exp(predict.SARIMA210110$fitted)
-#predict.SARIMA210110$mean <- exp(predict.SARIMA210110$mean)
-#plot(predict.SARIMA210110)
-
-#----------- SARIMA (6,2,0)(1,1,0) ------------
-
-#----- Identification des ordres -----
-logphoto %>% diff(.,differences = 2) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
-
-SARIMA620110<-arima(logphoto,order = c(6,2,0), seasonal = c(1,1,0)) #1 correspond ‡ D=12 dans la seasonnalitÈ
-
-#----- SignificativitÈ des paramËtres ----
-(1-pnorm(abs(SARIMA620110$coef)/sqrt(diag(SARIMA620110$var.coef))))*2 <= 0.05 # OK
-
-#----- PrÈvision ------
-predict.SARIMA620110<-forecast(SARIMA620110)
-
-#----- VÈrification des hypothËses ----
-acf(predict.SARIMA620110$residuals) #les rÈsidus ont l'air stationnaires
-pacf(predict.SARIMA620110$residuals) #pacf un peu limite...
-
-predict.SARIMA620110.residuals.norm<- (residuals(predict.SARIMA620110)-mean(residuals(predict.SARIMA620110)))/sd(residuals(predict.SARIMA620110) )
-
-#Test de normalitÈ des rÈsidus: Kolmogorov Smirnov
-qqnorm(predict.SARIMA620110.residuals.norm)
-abline(0,1, col = "red")
-ks.test(predict.SARIMA620110.residuals.norm, 'pnorm') # OK (p-value>0.05)
-
-#Test d'absence de correlation des rÈsidus
-Box.test(predict.SARIMA620110.residuals.norm) # OK
-kpss.test(predict.SARIMA620110.residuals.norm) # OK
-shapiro.test(predict.SARIMA620110.residuals.norm) # KO
-
-#---- Affichage ----
-exp.predict.SARIMA620110 <- LogToExp(predict.SARIMA620110)
-plot(exp.predict.SARIMA620110)
-
-#On passe repasse ‡ l'exponentiel
-#predict.SARIMA620110$lower <- exp(predict.SARIMA620110$lower)
-#predict.SARIMA620110$upper <- exp(predict.SARIMA620110$upper)
-#predict.SARIMA620110$x <- exp(predict.SARIMA620110$x)
-#predict.SARIMA620110$fitted <- exp(predict.SARIMA620110$fitted)
-#predict.SARIMA620110$mean <- exp(predict.SARIMA620110$mean)
-#plot(predict.SARIMA620110)
-
-
-
-
-#----------- SARIMA (5,2,0)(1,1,0) ------------
-
-
-
-#----- Identification des ordres -----
-logphoto %>% diff(.,differences = 2) %>% diff(.,lag=12) %T>% ts.affichage(.,"photovolatique d=1, D=1") %>% kpss.test(.) #KPSS OK - EN FAIT JE COMPREND PAS CA
-
-SARIMA520110<-arima(logphoto,order = c(5,2,0), seasonal = c(1,1,0)) #1 correspond ‡ D=12 dans la seasonnalitÈ
-
-#----- SignificativitÈ des paramËtres ----
-(1-pnorm(abs(SARIMA520110$coef)/sqrt(diag(SARIMA520110$var.coef))))*2 <= 0.05 # OK
-
-#----- PrÈvision ------
-predict.SARIMA520110<-forecast(SARIMA520110)
-
-#----- VÈrification des hypothËses ----
-acf(predict.SARIMA520110$residuals) #les rÈsidus ont l'air stationnaires
-pacf(predict.SARIMA520110$residuals) #pacf un peu limite...
-
-predict.SARIMA520110.residuals.norm<- (residuals(predict.SARIMA520110)-mean(residuals(predict.SARIMA520110)))/sd(residuals(predict.SARIMA520110) )
-
-#Test de normalitÈ des rÈsidus: Kolmogorov Smirnov
-qqnorm(predict.SARIMA520110.residuals.norm)
-abline(0,1, col = "red")
-ks.test(predict.SARIMA520110.residuals.norm, 'pnorm') # OK (p-value>0.05)
-
-#Test d'absence de correlation des rÈsidus
-Box.test(predict.SARIMA520110.residuals.norm) # OK
-kpss.test(predict.SARIMA520110.residuals.norm) # OK
-shapiro.test(predict.SARIMA520110.residuals.norm) # KO
-
-#---- Affichage ----
-exp.predict.SARIMA520110 <- LogToExp(predict.SARIMA520110)
-plot(exp.predict.SARIMA520110)
-#On passe repasse ‡ l'exponentiel
-#predict.SARIMA520110$lower <- exp(predict.SARIMA210110$lower)
-#predict.SARIMA520110$upper <- exp(predict.SARIMA520110$upper)
-#predict.SARIMA520110$x <- exp(predict.SARIMA520110$x)
-#predict.SARIMA520110$fitted <- exp(predict.SARIMA520110$fitted)
-#predict.SARIMA520110$mean <- exp(predict.SARIMA520110$mean)
-#plot(predict.SARIMA520110)
-
-
-
-# ---------- SELECTION DE MODELE --------
-
-# AIC / BIC : On veut minimiser les deux
-glance(SARIMA210110)
-glance(SARIMA620110)
-glance(SARIMA520110)
-# Le premier modËle est meilleur par rapport au BIC
-# Le deuxiËme modËle est meilleur par rapport ‡ l'AIC
-
-#----- Pouvoir explicatif - R2 -----
-1 - (SARIMA210110$sigma2 / (SARIMA210110$nobs-length(SARIMA210110$coef))) / (var(logphoto)/(SARIMA210110$nobs-1))
-1 - (SARIMA620110$sigma2 / (SARIMA620110$nobs-length(SARIMA620110$coef))) / (var(logphoto)/(SARIMA620110$nobs-1))
-1 - (SARIMA520110$sigma2 / (SARIMA520110$nobs-length(SARIMA520110$coef))) / (var(logphoto)/(SARIMA520110$nobs-1))
-#Les deux modËles sont Èquivalent par rapport au R2
-
-#----- Fisher ------
-((var(logphoto) - SARIMA210110$sigma2)/SARIMA210110$nobs-length(SARIMA210110$coef)) / (SARIMA210110$sigma2/(SARIMA210110$nobs-1))
-((var(logphoto) - SARIMA620110$sigma2)/SARIMA620110$nobs-length(SARIMA620110$coef)) / (SARIMA620110$sigma2/(SARIMA620110$nobs-1))
-((var(logphoto) - SARIMA520110$sigma2)/SARIMA520110$nobs-length(SARIMA520110$coef)) / (SARIMA520110$sigma2/(SARIMA520110$nobs-1))
-#Le premier modËle est bien meilleur par rapport ‡ la statistique de fisher
-
-
-#------- HOLT WINTERS -------
-HW.model <- HoltWinters(logphoto)
-
-#PrÈvision
-HW.predict <- predict(HW.model, 12, level = 0.95, prediction.interval = T)
-#On plot
-HW.predict %<>% exp
-
-HW.model$x %<>% exp
-
-plot(HW.model, HW.predict)
-
-sum(SARIMA210110$residuals^2) < HW.model$SSE
-sum(SARIMA620110$residuals^2) < HW.model$SSE
->>>>>>> c4932520c32af0144b81e33d77cad669dc855ec0
 
